@@ -81,6 +81,13 @@ class CharacterModel(Base):
         CheckConstraint('body_min <= body_current AND body_current <= body_max', name='ck_body_bounds'),
         CheckConstraint('move_min <= move_current AND move_current <= move_max', name='ck_move_bounds'),
         CheckConstraint('0 <= hp_current AND hp_current <= hp_max', name='ck_hp_bounds'),
+        CheckConstraint('0 <= heavy_wounds_threshold', name='ck_characters_heavy_wounds_threshold_nonnegative'),
+        CheckConstraint(
+            'heavy_wounds_threshold <= hp_max',
+            name='ck_characters_heavy_wounds_threshold_lte_hp_max',
+        ),
+        CheckConstraint('0 <= reputation', name='ck_characters_reputation_nonnegative'),
+        CheckConstraint('0 <= humanity', name='ck_characters_humanity_nonnegative'),
         CheckConstraint('0 <= upgrade_points', name='ck_upgrade_points_bounds'),
         CheckConstraint('0 <= armor_head', name='ck_armor_head_bounds'),
         CheckConstraint('0 <= armor_head_penalty', name='ck_armor_head_penalty_bounds'),

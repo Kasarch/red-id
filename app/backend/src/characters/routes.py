@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from auth.dependencies import CurrentUser
 from characters.dependencies import get_character_service
@@ -18,6 +18,7 @@ from characters.schemas import (
 from characters.service import (
     CharacterNotFoundError,
     CharacterService,
+    CharacterTitleAlreadyExistsError,
     CreateCharacterData,
     PartialUpdateCharacterData,
     UpdateCharacterData,
@@ -56,14 +57,20 @@ async def create_character(
     character_service: CharacterServiceDependency,
 ) -> CharacterResponse:
     data = _to_create_data(request)
-    character = await character_service.create(current_user.id, data)
+    try:
+        character = await character_service.create(current_user.id, data)
+    except CharacterTitleAlreadyExistsError as error:
+        raise _character_title_conflict() from error
     return _to_response(character)
 
 
 @router.put(
     '/{character_id}/',
     response_model=CharacterResponse,
-    responses={status.HTTP_404_NOT_FOUND: {'description': 'Character not found'}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {'description': 'Character not found'},
+        status.HTTP_409_CONFLICT: {'description': 'Character title already exists'},
+    },
 )
 async def update_character(
     character_id: UUID,
@@ -75,13 +82,18 @@ async def update_character(
         character = await character_service.update(character_id, current_user.id, _to_update_data(request))
     except CharacterNotFoundError as error:
         raise _character_not_found() from error
+    except CharacterTitleAlreadyExistsError as error:
+        raise _character_title_conflict() from error
     return _to_response(character)
 
 
 @router.patch(
     '/{character_id}/',
     response_model=CharacterResponse,
-    responses={status.HTTP_404_NOT_FOUND: {'description': 'Character not found'}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {'description': 'Character not found'},
+        status.HTTP_409_CONFLICT: {'description': 'Character title already exists'},
+    },
 )
 async def partial_update_character(
     character_id: UUID,
@@ -97,7 +109,26 @@ async def partial_update_character(
         )
     except CharacterNotFoundError as error:
         raise _character_not_found() from error
+    except CharacterTitleAlreadyExistsError as error:
+        raise _character_title_conflict() from error
     return _to_response(character)
+
+
+@router.delete(
+    '/{character_id}/',
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_404_NOT_FOUND: {'description': 'Character not found'}},
+)
+async def delete_character(
+    character_id: UUID,
+    current_user: CurrentUser,
+    character_service: CharacterServiceDependency,
+) -> Response:
+    try:
+        await character_service.delete(character_id, current_user.id)
+    except CharacterNotFoundError as error:
+        raise _character_not_found() from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _to_response(character: Character) -> CharacterResponse:
@@ -170,6 +201,7 @@ def _to_create_data(request: CharacterCreateRequest) -> CreateCharacterData:
 
 def _to_update_data(request: CharacterUpdateRequest) -> UpdateCharacterData:
     return UpdateCharacterData(
+        title=request.title,
         role=request.role,
         wallet=request.wallet,
         luck=_to_bounded_stat(request.luck),
@@ -196,6 +228,7 @@ def _to_update_data(request: CharacterUpdateRequest) -> UpdateCharacterData:
 def _to_partial_update_data(request: CharacterPartialUpdateRequest) -> PartialUpdateCharacterData:
     fields = request.model_fields_set
     return PartialUpdateCharacterData(
+        title=request.title if 'title' in fields else None,
         role=request.role if 'role' in fields else None,
         wallet=request.wallet if 'wallet' in fields else None,
         luck=_to_optional_bounded_stat(request.luck) if 'luck' in fields else None,
@@ -254,3 +287,7 @@ def _to_optional_hp_value(schema: HPValueRequest | None) -> HPValue:
 
 def _character_not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Character not found')
+
+
+def _character_title_conflict() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Character title already exists')

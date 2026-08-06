@@ -123,16 +123,10 @@ class Character:
             upgrade_points=self.upgrade_points,
         )
 
-    def rename(self, new_title: str) -> None:
-        normalized_title = self._normalize_title(new_title)
-        if not normalized_title:
-            raise ValueError('Charracter title cannot be empty or whitespace.')
-
-        self.title = normalized_title
-
     def replace_editable_state(
         self,
         *,
+        title: str,
         role: str,
         wallet: int,
         luck: BoundedStat,
@@ -154,6 +148,9 @@ class Character:
         humanity: int,
         upgrade_points: int,
     ) -> None:
+        normalized_title = self._normalize_title(title)
+        if not normalized_title:
+            raise ValueError('Character title cannot be empty or whitespace.')
         self._validate_editable_state(
             hp=hp,
             heavy_wounds_threshold=heavy_wounds_threshold,
@@ -161,6 +158,7 @@ class Character:
             humanity=humanity,
             upgrade_points=upgrade_points,
         )
+        self.title = normalized_title
         self.role = role
         self.wallet = wallet
         self.luck = luck
@@ -202,4 +200,4 @@ class Character:
 
     @staticmethod
     def _normalize_title(title: str) -> str:
-        return title.strip().lower()
+        return title.strip()

@@ -1,7 +1,8 @@
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, update
+from sqlalchemy.exc import IntegrityError
 
 from characters.entities import ArmorValue, BoundedStat, Character, HPValue
 from characters.models import CharacterModel
@@ -64,6 +65,7 @@ async def test_character_round_trip_and_update_persist_across_sessions() -> None
             assert loaded.hp == HPValue(current=35, max_value=35)
 
             loaded.replace_editable_state(
+                title=loaded.title,
                 role=loaded.role,
                 wallet=0,
                 luck=BoundedStat(current=10, min_value=3, max_value=10),
@@ -95,6 +97,49 @@ async def test_character_round_trip_and_update_persist_across_sessions() -> None
             assert persisted.luck.current == 10
             assert persisted.armor_body == ArmorValue(base_value=9, penalty=2)
             assert persisted.hp == HPValue(current=30, max_value=40)
+    finally:
+        async with async_session_factory() as session:
+            await session.execute(delete(CharacterModel).where(CharacterModel.id == character.id))
+            await session.execute(delete(User).where(User.id == owner_id))
+            await session.commit()
+        await engine.dispose()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    'values',
+    [
+        {'heavy_wounds_threshold': -1},
+        {'heavy_wounds_threshold': 36},
+        {'reputation': -1},
+        {'humanity': -1},
+        {'upgrade_points': -1},
+    ],
+)
+async def test_postgresql_rejects_character_invariant_violations(values: dict[str, int]) -> None:
+    owner_id = uuid4()
+    character = _character(owner_id)
+    character.title = f'constraint-{uuid4()}'
+
+    try:
+        async with async_session_factory() as session:
+            session.add(User(id=owner_id, avatar_url=None))
+            await session.flush()
+            CharacterRepository(session).add(character)
+            await session.commit()
+
+        async with async_session_factory() as session:
+            with pytest.raises(IntegrityError):
+                await session.execute(update(CharacterModel).where(CharacterModel.id == character.id).values(**values))
+                await session.commit()
+            await session.rollback()
+
+            persisted = await CharacterRepository(session).get_by_id_and_owner(character.id, owner_id)
+            assert persisted is not None
+            assert persisted.heavy_wounds_threshold == 17
+            assert persisted.reputation == 0
+            assert persisted.humanity == 50
+            assert persisted.upgrade_points == 0
     finally:
         async with async_session_factory() as session:
             await session.execute(delete(CharacterModel).where(CharacterModel.id == character.id))

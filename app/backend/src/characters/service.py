@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from characters.entities import ArmorValue, BoundedStat, Character, HPValue
@@ -30,6 +30,7 @@ class CharacterTitleAlreadyExistsError(Exception):
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class UpdateCharacterData:
+    title: str
     role: str
     wallet: int
     luck: BoundedStat
@@ -54,11 +55,12 @@ class UpdateCharacterData:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class CreateCharacterData(UpdateCharacterData):
-    title: str
+    pass
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class PartialUpdateCharacterData:
+    title: str | None = None
     role: str | None = None
     wallet: int | None = None
     luck: BoundedStat | None = None
@@ -87,10 +89,6 @@ class CharacterService:
         self._repository = repository
 
     async def create(self, owner_id: UUID, data: CreateCharacterData) -> Character:
-        existing = await self._repository.get_by_owner_and_title(owner_id, data.title)
-        if existing is not None:
-            raise CharacterTitleAlreadyExistsError
-
         character = Character(
             id=uuid4(),
             owner_id=owner_id,
@@ -116,6 +114,7 @@ class CharacterService:
             humanity=data.humanity,
             upgrade_points=data.upgrade_points,
         )
+        await self._ensure_title_available(character)
         self._repository.add(character)
         await self._commit()
         return character
@@ -134,6 +133,7 @@ class CharacterService:
     ) -> Character:
         character = await self._get_owned_character(character_id, owner_id)
         _replace_state(character, data)
+        await self._ensure_title_available(character)
         await self._save(character)
         return character
 
@@ -145,6 +145,7 @@ class CharacterService:
     ) -> Character:
         character = await self._get_owned_character(character_id, owner_id)
         character.replace_editable_state(
+            title=data.title if data.title is not None else character.title,
             role=data.role if data.role is not None else character.role,
             wallet=data.wallet if data.wallet is not None else character.wallet,
             luck=data.luck if data.luck is not None else character.luck,
@@ -170,24 +171,24 @@ class CharacterService:
             humanity=data.humanity if data.humanity is not None else character.humanity,
             upgrade_points=data.upgrade_points if data.upgrade_points is not None else character.upgrade_points,
         )
+        await self._ensure_title_available(character)
         await self._save(character)
         return character
 
-    async def rename(self, character_id: UUID, owner_id: UUID, new_title: str) -> Character:
-        character = await self._repository.get_by_id_and_owner(character_id, owner_id)
-        if character is None:
-            raise CharacterNotFoundError
+    async def delete(self, character_id: UUID, owner_id: UUID) -> None:
+        try:
+            deleted = await self._repository.delete_by_id_and_owner(character_id, owner_id)
+            if not deleted:
+                raise CharacterNotFoundError
+            await self._session.commit()
+        except SQLAlchemyError:
+            await self._session.rollback()
+            raise
 
-        character.rename(new_title)
-        existing = await self._repository.get_by_owner_and_title(owner_id, character.title)
+    async def _ensure_title_available(self, character: Character) -> None:
+        existing = await self._repository.get_by_owner_and_title(character.owner_id, character.title)
         if existing is not None and existing.id != character.id:
             raise CharacterTitleAlreadyExistsError
-
-        saved = await self._repository.save(character)
-        if not saved:
-            raise CharacterNotFoundError
-        await self._commit()
-        return character
 
     async def _get_owned_character(self, character_id: UUID, owner_id: UUID) -> Character:
         character = await self._repository.get_by_id_and_owner(character_id, owner_id)
@@ -196,10 +197,14 @@ class CharacterService:
         return character
 
     async def _save(self, character: Character) -> None:
-        saved = await self._repository.save(character)
-        if not saved:
-            raise CharacterNotFoundError
-        await self._commit()
+        try:
+            saved = await self._repository.save(character)
+            if not saved:
+                raise CharacterNotFoundError
+            await self._commit()
+        except SQLAlchemyError:
+            await self._session.rollback()
+            raise
 
     async def _commit(self) -> None:
         try:
@@ -208,6 +213,9 @@ class CharacterService:
             await self._session.rollback()
             if _is_character_title_conflict(error):
                 raise CharacterTitleAlreadyExistsError from error
+            raise
+        except SQLAlchemyError:
+            await self._session.rollback()
             raise
 
 
@@ -224,6 +232,7 @@ def _is_character_title_conflict(error: IntegrityError) -> bool:
 
 def _replace_state(character: Character, data: UpdateCharacterData) -> None:
     character.replace_editable_state(
+        title=data.title,
         role=data.role,
         wallet=data.wallet,
         luck=data.luck,

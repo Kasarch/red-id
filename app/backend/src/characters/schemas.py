@@ -53,7 +53,7 @@ class CharacterTitleRequest(CharacterRequest):
         return normalized_title
 
 
-class CharacterUpdateRequest(CharacterRequest):
+class CharacterUpdateRequest(CharacterTitleRequest):
     role: str
     wallet: PostgresInteger
     luck: BoundedStatRequest
@@ -76,11 +76,12 @@ class CharacterUpdateRequest(CharacterRequest):
     upgrade_points: NonNegativePostgresInteger
 
 
-class CharacterCreateRequest(CharacterTitleRequest, CharacterUpdateRequest):
+class CharacterCreateRequest(CharacterUpdateRequest):
     pass
 
 
 class CharacterPartialUpdateRequest(CharacterRequest):
+    title: str | None = None
     role: str | None = None
     wallet: PostgresInteger | None = None
     luck: BoundedStatRequest | None = None
@@ -109,15 +110,19 @@ class CharacterPartialUpdateRequest(CharacterRequest):
             raise ValueError('null is not allowed')
         return value
 
+    @field_validator('title')
+    @classmethod
+    def normalize_title(cls, title: str) -> str:
+        normalized_title = title.strip()
+        if not normalized_title:
+            raise ValueError('title cannot be empty or whitespace')
+        return normalized_title
+
     @model_validator(mode='after')
     def reject_empty_request(self) -> Self:
         if not self.model_fields_set:
             raise ValueError('at least one field must be provided')
         return self
-
-
-class CharacterRenameRequest(CharacterTitleRequest):
-    pass
 
 
 class CharacterResponse(CharacterCreateRequest):

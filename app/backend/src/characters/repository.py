@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from characters.entities import ArmorValue, BoundedStat, Character, HPValue
@@ -51,6 +51,18 @@ class CharacterRepository:
             return False
         _update_model(model, character)
         return True
+
+    async def delete_by_id_and_owner(self, character_id: UUID, owner_id: UUID) -> bool:
+        statement = (
+            delete(CharacterModel)
+            .where(
+                CharacterModel.id == character_id,
+                CharacterModel.owner_id == owner_id,
+            )
+            .returning(CharacterModel.id)
+        )
+        result = await self._session.execute(statement)
+        return result.scalar_one_or_none() is not None
 
 
 def _to_domain(model: CharacterModel) -> Character:
