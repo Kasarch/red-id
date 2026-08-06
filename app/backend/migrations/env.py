@@ -5,11 +5,12 @@ from alembic import context
 from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from characters import models as character_models
 from config import settings
 from database import Base
-from users import models
+from users import models as user_models
 
-_ = models
+_ = character_models, user_models
 
 config = context.config
 
