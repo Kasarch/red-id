@@ -13,7 +13,7 @@ Current backend capabilities:
 - sign-in through Yandex OAuth and application-issued access/refresh JWT pairs;
 - JWT refresh;
 - viewing and updating the current user's avatar;
-- creating, listing, reading, fully updating, and partially updating the authenticated user's character sheets;
+- creating, listing, reading, fully/partially updating, and deleting the authenticated user's character sheets;
 - an HTTP health endpoint and automatically generated OpenAPI documentation.
 
 ### Technology stack
@@ -91,7 +91,7 @@ AUTH__STATE_TTL_MINUTES=10
 
 YANDEX_OAUTH__CLIENT_ID=replace-with-yandex-client-id
 YANDEX_OAUTH__CLIENT_SECRET=replace-with-yandex-client-secret
-YANDEX_OAUTH__REDIRECT_URI=http://localhost:8000/api/v1/auth/oauth/yandex/callback
+YANDEX_OAUTH__REDIRECT_URI=http://localhost:8000/api/v1/auth/oauth/yandex/callback/
 YANDEX_OAUTH__AUTHORIZE_URL=https://oauth.yandex.ru/authorize
 YANDEX_OAUTH__TOKEN_URL=https://oauth.yandex.ru/token
 YANDEX_OAUTH__USER_INFO_URL=https://login.yandex.ru/info
@@ -127,7 +127,7 @@ When the backend runs directly on the host, `DATABASE_URL` normally uses `localh
 Create an OAuth application in the [Yandex OAuth application portal](https://oauth.yandex.ru/). Register this callback URL:
 
 ```text
-http://localhost:8000/api/v1/auth/oauth/yandex/callback
+http://localhost:8000/api/v1/auth/oauth/yandex/callback/
 ```
 
 Set the issued credentials in `YANDEX_OAUTH__CLIENT_ID` and `YANDEX_OAUTH__CLIENT_SECRET`, and keep `YANDEX_OAUTH__REDIRECT_URI` identical to the registered callback. Never commit the client secret.
@@ -146,7 +146,11 @@ docker compose up -d
 docker compose ps
 ```
 
-The backend waits for the PostgreSQL healthcheck, applies `alembic upgrade head`, and starts Uvicorn only after the migrations complete successfully. If a migration fails, the application server is not started.
+The backend waits for the PostgreSQL healthcheck, runs `alembic upgrade head`, and starts Uvicorn only after migrations complete successfully. A migration failure terminates the backend container with a non-zero status. Migrations can also be applied manually for local development and diagnostics:
+
+```bash
+docker compose run --rm backend alembic upgrade head
+```
 
 View backend logs:
 
@@ -178,13 +182,13 @@ Use an existing PostgreSQL server and make sure `DATABASE_URL` in `app/backend/.
 cd app/backend
 python3.12 -m venv venv
 source venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install poetry==2.4.1
+poetry install --all-extras --no-root
 cp .env.example .env
 # Edit .env and replace all required placeholder values.
 
-python -m alembic upgrade head
-uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
+poetry run alembic upgrade head
+poetry run uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
 ```
 
 If `app/backend/.env` already exists, do not overwrite it; review and update it instead.
@@ -192,27 +196,43 @@ If `app/backend/.env` already exists, do not overwrite it; review and update it 
 ### API addresses
 
 - API: `http://localhost:8000`
-- Health check: `http://localhost:8000/api/v1/health`
+- Health check: `http://localhost:8000/api/v1/health/`
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
 ### Development checks
 
-Activate the development virtual environment and run these commands from `app/backend/`:
+Poetry uses `poetry.lock` as the single dependency source. Run these commands from `app/backend/`:
 
 ```bash
-ruff format --check .
-ruff check .
-mypy
-pytest
-pytest --junitxml=test-results.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml
+poetry check
+poetry install --all-extras --no-root
+poetry run ruff format --check .
+poetry run ruff check .
+poetry run mypy src
+poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 ```
 
 To format the code instead of checking formatting:
 
 ```bash
-ruff format .
+poetry run ruff format .
 ```
+
+### Architecture and character API
+
+```text
+HTTP route -> service -> repository -> PostgreSQL
+                 |
+                 v
+            domain model
+```
+
+Character routes use the `/api/v1` prefix: `GET/POST /api/v1/characters/` and `GET/PUT/PATCH/DELETE /api/v1/characters/{character_id}/`. A title is trimmed at its edges, keeps its display case, and is unique per owner without regard to case. Title changes are available only through `PUT` and `PATCH`; there is no rename action. Successful deletion returns `204 No Content`. All application endpoints are declared with a trailing `/`.
+
+### Stateless refresh-token limitation
+
+Refresh tokens are stateless JWTs: the server stores no sessions, token families, or revocation list. Consequently, logout with immediate invalidation and server-side revocation are not supported, and a compromised refresh token remains usable until it expires. Detecting reuse and implementing true rotation would require server state, such as stored token-family hashes.
 
 ## Русский
 
@@ -225,7 +245,7 @@ RedID — веб-приложение для создания и ведения 
 - вход через Yandex OAuth и выпуск собственных пар access/refresh JWT;
 - обновление JWT;
 - просмотр и изменение аватара текущего пользователя;
-- создание, получение списка, просмотр, полное и частичное обновление листов персонажей аутентифицированного пользователя;
+- создание, получение списка, просмотр, полное/частичное обновление и удаление листов персонажей аутентифицированного пользователя;
 - HTTP health endpoint и автоматически сформированная документация OpenAPI.
 
 ### Технологический стек
@@ -303,7 +323,7 @@ AUTH__STATE_TTL_MINUTES=10
 
 YANDEX_OAUTH__CLIENT_ID=replace-with-yandex-client-id
 YANDEX_OAUTH__CLIENT_SECRET=replace-with-yandex-client-secret
-YANDEX_OAUTH__REDIRECT_URI=http://localhost:8000/api/v1/auth/oauth/yandex/callback
+YANDEX_OAUTH__REDIRECT_URI=http://localhost:8000/api/v1/auth/oauth/yandex/callback/
 YANDEX_OAUTH__AUTHORIZE_URL=https://oauth.yandex.ru/authorize
 YANDEX_OAUTH__TOKEN_URL=https://oauth.yandex.ru/token
 YANDEX_OAUTH__USER_INFO_URL=https://login.yandex.ru/info
@@ -339,7 +359,7 @@ YANDEX_OAUTH__HTTP_TIMEOUT_SECONDS=10
 Создайте OAuth-приложение в [кабинете приложений Yandex OAuth](https://oauth.yandex.ru/). Зарегистрируйте callback URL:
 
 ```text
-http://localhost:8000/api/v1/auth/oauth/yandex/callback
+http://localhost:8000/api/v1/auth/oauth/yandex/callback/
 ```
 
 Укажите выданные реквизиты в `YANDEX_OAUTH__CLIENT_ID` и `YANDEX_OAUTH__CLIENT_SECRET`, а значение `YANDEX_OAUTH__REDIRECT_URI` оставьте идентичным зарегистрированному callback. Никогда не добавляйте client secret в коммиты.
@@ -358,7 +378,11 @@ docker compose up -d
 docker compose ps
 ```
 
-Backend ожидает успешного healthcheck PostgreSQL, выполняет `alembic upgrade head` и запускает Uvicorn только после успешного завершения миграций. Если миграция завершается с ошибкой, сервер приложения не запускается.
+Backend ожидает успешного healthcheck PostgreSQL, выполняет `alembic upgrade head` и запускает Uvicorn только после успешного завершения миграций. При ошибке миграции backend-контейнер завершается с ненулевым кодом. Для локальной разработки и диагностики миграции также можно применить вручную:
+
+```bash
+docker compose run --rm backend alembic upgrade head
+```
 
 Посмотреть логи backend:
 
@@ -390,13 +414,13 @@ docker compose down
 cd app/backend
 python3.12 -m venv venv
 source venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install poetry==2.4.1
+poetry install --all-extras --no-root
 cp .env.example .env
 # Отредактируйте .env и замените все обязательные значения-заглушки.
 
-python -m alembic upgrade head
-uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
+poetry run alembic upgrade head
+poetry run uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
 ```
 
 Если `app/backend/.env` уже существует, не перезаписывайте его — проверьте и обновите существующий файл.
@@ -404,24 +428,40 @@ uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
 ### Адреса API
 
 - API: `http://localhost:8000`
-- Healthcheck: `http://localhost:8000/api/v1/health`
+- Healthcheck: `http://localhost:8000/api/v1/health/`
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
 ### Команды разработки и проверок
 
-Активируйте виртуальное окружение и выполняйте команды из `app/backend/`:
+Poetry использует `poetry.lock` как единственный источник зависимостей. Выполняйте команды из `app/backend/`:
 
 ```bash
-ruff format --check .
-ruff check .
-mypy
-pytest
-pytest --junitxml=test-results.xml --cov=src --cov-report=term-missing --cov-report=xml:coverage.xml
+poetry check
+poetry install --all-extras --no-root
+poetry run ruff format --check .
+poetry run ruff check .
+poetry run mypy src
+poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 ```
 
 Чтобы отформатировать код, а не только проверить форматирование:
 
 ```bash
-ruff format .
+poetry run ruff format .
 ```
+
+### Архитектура и API персонажей
+
+```text
+HTTP route -> service -> repository -> PostgreSQL
+                 |
+                 v
+            domain model
+```
+
+Маршруты персонажей используют prefix `/api/v1`: `GET/POST /api/v1/characters/` и `GET/PUT/PATCH/DELETE /api/v1/characters/{character_id}/`. У названия удаляются крайние пробелы, отображаемый регистр сохраняется, а уникальность для владельца проверяется без учёта регистра. Название изменяется только через `PUT` и `PATCH`; отдельного rename-действия нет. Успешное удаление возвращает `204 No Content`. Все прикладные endpoints объявлены с завершающим `/`.
+
+### Ограничение stateless refresh-токенов
+
+Refresh-токены являются stateless JWT: сервер не хранит сессии, семейства токенов или список отзыва. Поэтому logout с немедленной инвалидизацией и серверный отзыв не поддерживаются, а скомпрометированный refresh-токен остаётся применимым до истечения срока. Обнаружение повторного использования и полноценная rotation потребуют серверного состояния, например хранения хешей token family.
