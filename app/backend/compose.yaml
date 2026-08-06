@@ -2,18 +2,32 @@ services:
   postgres:
     image: postgres:18
     environment:
-      POSTGRES_DB: redid
-      POSTGRES_USER: redid
-      POSTGRES_PASSWORD: redid
+      POSTGRES_DB: ${POSTGRES_DB:-redid}
+      POSTGRES_USER: ${POSTGRES_USER:-redid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-redid}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U redid -d redid"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-redid}:${POSTGRES_PASSWORD:-redid}@postgres:5432/${POSTGRES_DB:-redid}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
