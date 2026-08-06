@@ -29,9 +29,11 @@ RUN addgroup --system backend \
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=backend:backend src ./src
+COPY --chown=backend:backend alembic.ini ./
+COPY --chown=backend:backend migrations ./migrations
 
 USER backend
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--app-dir", "src", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000"]

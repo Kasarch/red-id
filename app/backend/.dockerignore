@@ -22,7 +22,6 @@ ENV/
 .DS_Store
 
 tests/
-migrations/
 scripts/
 .coverage
 coverage.xml
