@@ -44,7 +44,7 @@ async def test_oauth_login_returns_authorization_url_without_cookies() -> None:
     app.dependency_overrides[get_auth_service] = lambda: service
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-            response = await client.get('/api/v1/auth/oauth/yandex/login')
+            response = await client.get('/api/v1/auth/oauth/yandex/login/')
     finally:
         app.dependency_overrides.pop(get_auth_service, None)
 
@@ -72,7 +72,7 @@ async def test_oauth_callback_maps_errors_safely(
     app.dependency_overrides[get_auth_service] = lambda: service
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-            response = await client.get('/api/v1/auth/oauth/yandex/callback?code=secret-code&state=signed-state')
+            response = await client.get('/api/v1/auth/oauth/yandex/callback/?code=secret-code&state=signed-state')
     finally:
         app.dependency_overrides.pop(get_auth_service, None)
 
@@ -91,7 +91,7 @@ async def test_oauth_callback_rejects_incomplete_or_denied_callback(query: str) 
     app.dependency_overrides[get_auth_service] = lambda: service
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-            response = await client.get(f'/api/v1/auth/oauth/yandex/callback{query}')
+            response = await client.get(f'/api/v1/auth/oauth/yandex/callback/{query}')
     finally:
         app.dependency_overrides.pop(get_auth_service, None)
 
@@ -105,8 +105,8 @@ async def test_refresh_endpoint_uses_json_body_and_returns_no_cookie() -> None:
     app.dependency_overrides[get_refresh_service] = lambda: service
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-            response = await client.post('/api/v1/auth/refresh', json={'refresh_token': 'body-refresh'})
-            bearer_only = await client.post('/api/v1/auth/refresh', headers={'Authorization': 'Bearer body-refresh'})
+            response = await client.post('/api/v1/auth/refresh/', json={'refresh_token': 'body-refresh'})
+            bearer_only = await client.post('/api/v1/auth/refresh/', headers={'Authorization': 'Bearer body-refresh'})
     finally:
         app.dependency_overrides.pop(get_refresh_service, None)
 
@@ -124,7 +124,7 @@ async def test_refresh_endpoint_maps_invalid_token() -> None:
     app.dependency_overrides[get_refresh_service] = lambda: service
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
-            response = await client.post('/api/v1/auth/refresh', json={'refresh_token': 'invalid-secret-token'})
+            response = await client.post('/api/v1/auth/refresh/', json={'refresh_token': 'invalid-secret-token'})
     finally:
         app.dependency_overrides.pop(get_refresh_service, None)
 

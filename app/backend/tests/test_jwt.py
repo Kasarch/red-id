@@ -34,7 +34,13 @@ def test_user_token_types_cannot_be_swapped(auth_settings: AuthSettings) -> None
 def test_user_token_rejects_wrong_signature(auth_settings: AuthSettings, secret: str) -> None:
     now = datetime.now(UTC)
     token = jwt.encode(
-        {'sub': str(uuid4()), 'iat': now, 'exp': now + timedelta(minutes=5), 'token_type': 'access'},
+        {
+            'sub': str(uuid4()),
+            'jti': str(uuid4()),
+            'iat': now,
+            'exp': now + timedelta(minutes=5),
+            'token_type': 'access',
+        },
         secret,
         algorithm='HS256',
     )
@@ -48,6 +54,7 @@ def test_user_token_rejects_expired_token(auth_settings: AuthSettings) -> None:
     token = jwt.encode(
         {
             'sub': str(uuid4()),
+            'jti': str(uuid4()),
             'iat': now - timedelta(minutes=10),
             'exp': now - timedelta(minutes=5),
             'token_type': 'access',
@@ -63,7 +70,13 @@ def test_user_token_rejects_expired_token(auth_settings: AuthSettings) -> None:
 def test_user_token_rejects_disallowed_algorithm(auth_settings: AuthSettings) -> None:
     now = datetime.now(UTC)
     token = jwt.encode(
-        {'sub': str(uuid4()), 'iat': now, 'exp': now + timedelta(minutes=5), 'token_type': 'access'},
+        {
+            'sub': str(uuid4()),
+            'jti': str(uuid4()),
+            'iat': now,
+            'exp': now + timedelta(minutes=5),
+            'token_type': 'access',
+        },
         auth_settings.jwt_secret.get_secret_value(),
         algorithm='HS384',
     )
@@ -76,6 +89,39 @@ def test_oauth_state_round_trip(auth_settings: AuthSettings) -> None:
     service = JWTService(auth_settings)
 
     service.validate_state(service.create_state())
+
+
+def test_oauth_state_and_user_tokens_cannot_be_swapped(auth_settings: AuthSettings) -> None:
+    service = JWTService(auth_settings)
+    access_token, refresh_token = service.create_token_pair(uuid4())
+    state = service.create_state()
+
+    with pytest.raises(TokenValidationError):
+        service.validate_state(access_token)
+    with pytest.raises(TokenValidationError):
+        service.validate_state(refresh_token)
+    with pytest.raises(TokenValidationError):
+        service.decode_user_token(state, TokenType.ACCESS)
+    with pytest.raises(TokenValidationError):
+        service.decode_user_token(state, TokenType.REFRESH)
+
+
+def test_user_token_requires_jti_and_rejects_future_iat(auth_settings: AuthSettings) -> None:
+    now = datetime.now(UTC)
+    payload = {
+        'sub': str(uuid4()),
+        'iat': now + timedelta(minutes=5),
+        'exp': now + timedelta(minutes=10),
+        'token_type': 'access',
+    }
+    token_without_jti = jwt.encode(payload, auth_settings.jwt_secret.get_secret_value(), algorithm='HS256')
+    payload['jti'] = str(uuid4())
+    token_with_future_iat = jwt.encode(payload, auth_settings.jwt_secret.get_secret_value(), algorithm='HS256')
+
+    with pytest.raises(TokenValidationError):
+        JWTService(auth_settings).decode_user_token(token_without_jti, TokenType.ACCESS)
+    with pytest.raises(TokenValidationError):
+        JWTService(auth_settings).decode_user_token(token_with_future_iat, TokenType.ACCESS)
 
 
 @pytest.mark.parametrize(

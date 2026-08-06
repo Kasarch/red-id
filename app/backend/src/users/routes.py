@@ -17,12 +17,12 @@ def get_user_service(session: SessionDependency) -> UserService:
 UserServiceDependency = Annotated[UserService, Depends(get_user_service)]
 
 
-@router.get('/me', response_model=UserResponse)
+@router.get('/me/', response_model=UserResponse)
 def get_me(current_user: CurrentUser) -> UserResponse:
     return UserResponse.model_validate(current_user)
 
 
-@router.patch('/me', response_model=UserResponse)
+@router.patch('/me/', response_model=UserResponse)
 async def update_me(
     request: UserUpdate,
     current_user: CurrentUser,

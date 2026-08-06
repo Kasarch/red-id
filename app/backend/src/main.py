@@ -18,11 +18,11 @@ api_router.include_router(users_router)
 api_router.include_router(characters_router)
 
 
-@api_router.get('/health', response_model=HealthResponse)
+@api_router.get('/health/', response_model=HealthResponse)
 def health() -> HealthResponse:
     """Report that the HTTP process is running; this does not probe PostgreSQL."""
     return HealthResponse(status='ok')
 
 
-app = FastAPI(title='redid')
+app = FastAPI(title='redid', redirect_slashes=False)
 app.include_router(api_router)

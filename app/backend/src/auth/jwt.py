@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from secrets import token_urlsafe
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt
 from jwt import InvalidTokenError
@@ -22,6 +22,7 @@ class TokenValidationError(Exception):
 
 class TokenClaims(BaseModel):
     sub: str
+    jti: UUID
     iat: datetime
     exp: datetime
     token_type: TokenType
@@ -55,7 +56,7 @@ class JWTService:
                 token,
                 self._secret,
                 algorithms=[self._algorithm],
-                options={'require': ['sub', 'iat', 'exp', 'token_type']},
+                options={'require': ['sub', 'jti', 'iat', 'exp', 'token_type']},
             )
             claims = TokenClaims.model_validate(payload)
             user_id = UUID(claims.sub)
@@ -97,6 +98,7 @@ class JWTService:
         return jwt.encode(
             {
                 'sub': str(user_id),
+                'jti': str(uuid4()),
                 'iat': now,
                 'exp': now + ttl,
                 'token_type': token_type,

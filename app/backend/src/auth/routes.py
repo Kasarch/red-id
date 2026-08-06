@@ -18,13 +18,13 @@ AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
 RefreshServiceDependency = Annotated[RefreshService, Depends(get_refresh_service)]
 
 
-@router.get('/oauth/yandex/login', response_model=OAuthLoginResponse)
+@router.get('/oauth/yandex/login/', response_model=OAuthLoginResponse)
 def yandex_login(service: AuthServiceDependency) -> OAuthLoginResponse:
     return OAuthLoginResponse(authorization_url=service.authorization_url())
 
 
 @router.get(
-    '/oauth/yandex/callback',
+    '/oauth/yandex/callback/',
     response_model=TokenPair,
     responses={
         400: {'description': 'Invalid callback'},
@@ -57,7 +57,7 @@ async def yandex_callback(callback: Annotated[OAuthCallback, Query()], service: 
 
 
 @router.post(
-    '/refresh',
+    '/refresh/',
     response_model=TokenPair,
     responses={401: {'description': 'Invalid refresh token'}},
 )
