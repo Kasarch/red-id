@@ -1,5 +1,8 @@
 # RedID
 
+[![Backend CI](https://github.com/Kasarch/red-id/actions/workflows/backend-ci.yml/badge.svg?branch=master)](https://github.com/Kasarch/red-id/actions/workflows/backend-ci.yml)
+[![Coverage](https://raw.githubusercontent.com/Kasarch/red-id/badges/coverage.svg)](https://github.com/Kasarch/red-id/actions/workflows/backend-ci.yml)
+
 [English](#english) | [Русский](#русский)
 
 ## English

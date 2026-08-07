@@ -146,7 +146,7 @@ jobs:
           else
             git worktree add --detach "$BADGE_WORKTREE"
             git -C "$BADGE_WORKTREE" switch --orphan badges
-            git -C "$BADGE_WORKTREE" rm -rf .
+            git -C "$BADGE_WORKTREE" rm -rf --ignore-unmatch .
           fi
 
           cp "$BADGE_SOURCE" "$BADGE_WORKTREE/coverage.svg"
