@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from auth.routes import router as auth_router
 from characters.routes import router as characters_router
+from skills.routes import router as skills_router
 from users.routes import router as users_router
 
 
@@ -16,6 +17,7 @@ api_router = APIRouter(prefix='/api/v1')
 api_router.include_router(auth_router)
 api_router.include_router(users_router)
 api_router.include_router(characters_router)
+api_router.include_router(skills_router)
 
 
 @api_router.get('/health/', response_model=HealthResponse)

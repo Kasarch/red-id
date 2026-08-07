@@ -8,9 +8,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from characters import models as character_models
 from config import settings
 from database import Base
+from skills import models as skill_models
 from users import models as user_models
 
-_ = character_models, user_models
+_ = character_models, skill_models, user_models
 
 config = context.config
 
