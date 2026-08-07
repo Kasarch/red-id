@@ -7,6 +7,9 @@
 
 ## English
 
+### Status
+Work in progress. The backend API is functional; frontend development is planned.
+
 ### About
 
 RedID is a web application for creating and maintaining character sheets for Cyberpunk RED. The repository currently contains the backend API and its PostgreSQL database configuration.
@@ -245,6 +248,9 @@ A skill title is trimmed and unique within its character without regard to case.
 Refresh tokens are stateless JWTs: the server stores no sessions, token families, or revocation list. Consequently, logout with immediate invalidation and server-side revocation are not supported, and a compromised refresh token remains usable until it expires. Detecting reuse and implementing true rotation would require server state, such as stored token-family hashes.
 
 ## Русский
+
+### Статус
+В процессе разработки: backend API функционально; фронтенд планируется в будущем
 
 ### О проекте
 
