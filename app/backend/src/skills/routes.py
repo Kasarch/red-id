@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 
 from auth.dependencies import CurrentUser
 from skills.dependencies import SkillServiceDependency
-from skills.entities import Skill
+from skills.entities import Skill, SkillValidationError
 from skills.schemas import (
     SkillCreateRequest,
     SkillPartialUpdateRequest,
@@ -45,8 +45,8 @@ async def create_skill(
         raise _skill_not_found() from error
     except (SkillTitleAlreadyExistsError, SpecialSkillAlreadyExistsError) as error:
         raise _skill_conflict(error) from error
-    except ValueError as error:
-        raise _invalid_skill_state() from error
+    except SkillValidationError as error:
+        raise _invalid_skill_state(error) from error
 
 
 @router.get('/{skill_id}/', response_model=SkillResponse)
@@ -77,8 +77,8 @@ async def update_skill(
         raise _skill_not_found() from error
     except (SkillTitleAlreadyExistsError, SpecialSkillAlreadyExistsError) as error:
         raise _skill_conflict(error) from error
-    except ValueError as error:
-        raise _invalid_skill_state() from error
+    except SkillValidationError as error:
+        raise _invalid_skill_state(error) from error
     return Response(status_code=204) if result is None else _to_response(result)
 
 
@@ -112,8 +112,8 @@ async def partial_update_skill(
         raise _skill_not_found() from error
     except (SkillTitleAlreadyExistsError, SpecialSkillAlreadyExistsError) as error:
         raise _skill_conflict(error) from error
-    except ValueError as error:
-        raise _invalid_skill_state() from error
+    except SkillValidationError as error:
+        raise _invalid_skill_state(error) from error
     return Response(status_code=204) if result is None else _to_response(result)
 
 
@@ -164,5 +164,5 @@ def _skill_conflict(error: Exception) -> HTTPException:
     return HTTPException(status_code=409, detail=detail)
 
 
-def _invalid_skill_state() -> HTTPException:
-    return HTTPException(status_code=422, detail='Resulting skill state is invalid')
+def _invalid_skill_state(error: SkillValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=error.code)
