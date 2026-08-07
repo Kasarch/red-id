@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -7,17 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from characters.entities import ArmorValue, BoundedStat, Character, HPValue
 from characters.repository import CharacterRepository
+from database_errors import postgresql_constraint_name
 
 CHARACTER_TITLE_CONSTRAINT = 'uq_characters_owner_id_title_lower'
-
-
-@runtime_checkable
-class PostgreSQLConstraintError(Protocol):
-    @property
-    def sqlstate(self) -> str: ...
-
-    @property
-    def constraint_name(self) -> str | None: ...
 
 
 class CharacterNotFoundError(Exception):
@@ -220,14 +211,7 @@ class CharacterService:
 
 
 def _is_character_title_conflict(error: IntegrityError) -> bool:
-    if error.orig is None:
-        return False
-    cause = error.orig.__cause__
-    return (
-        isinstance(cause, PostgreSQLConstraintError)
-        and cause.sqlstate == '23505'
-        and cause.constraint_name == CHARACTER_TITLE_CONSTRAINT
-    )
+    return postgresql_constraint_name(error, sqlstate='23505') == CHARACTER_TITLE_CONSTRAINT
 
 
 def _replace_state(character: Character, data: UpdateCharacterData) -> None:

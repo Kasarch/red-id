@@ -1,19 +1,34 @@
 from dataclasses import dataclass
-from enum import StrEnum
 from uuid import UUID
 
+from characters.entities import CharacterStatName
 
-class SkillStat(StrEnum):
-    LUCK = 'luck'
-    INTELLIGENCE = 'intelligence'
-    REFLEXES = 'reflexes'
-    DEXTERITY = 'dexterity'
-    COOL = 'cool'
-    EMPATHY = 'empathy'
-    WILLPOWER = 'willpower'
-    TECHNIC = 'technic'
-    BODY = 'body'
-    MOVEMENT = 'movement'
+
+class SkillValidationError(ValueError):
+    code: str
+
+    def __init__(self) -> None:
+        super().__init__(self.code)
+
+
+class EmptySkillTitleError(SkillValidationError):
+    code = 'skill_title_empty'
+
+
+class InvalidSkillBoundsError(SkillValidationError):
+    code = 'skill_bounds_invalid'
+
+
+class SkillValueOutsideBoundsError(SkillValidationError):
+    code = 'skill_value_outside_bounds'
+
+
+class InvalidSkillMultiplierError(SkillValidationError):
+    code = 'skill_multiplier_not_positive'
+
+
+class RegularSkillStatRequiredError(SkillValidationError):
+    code = 'regular_skill_stat_required'
 
 
 @dataclass(slots=True, kw_only=True)
@@ -26,7 +41,7 @@ class Skill:
     min_value: int
     max_value: int
     multiplier: int
-    stat: SkillStat | None
+    stat: CharacterStatName | None
     is_special: bool
 
     def __post_init__(self) -> None:
@@ -50,22 +65,20 @@ class Skill:
         min_value: int,
         max_value: int,
         multiplier: int,
-        stat: SkillStat | None,
+        stat: CharacterStatName | None,
         is_special: bool,
     ) -> None:
         normalized_title = title.strip()
         if not normalized_title:
-            raise ValueError('Skill title cannot be empty or whitespace.')
-        if min_value < 0:
-            raise ValueError('Skill min_value cannot be negative.')
-        if max_value < min_value:
-            raise ValueError('Skill max_value cannot be less than min_value.')
+            raise EmptySkillTitleError
+        if min_value < 0 or max_value < min_value:
+            raise InvalidSkillBoundsError
         if value <= 0 or not min_value <= value <= max_value:
-            raise ValueError('Skill value must be positive and within bounds.')
+            raise SkillValueOutsideBoundsError
         if multiplier < 1:
-            raise ValueError('Skill multiplier must be positive.')
+            raise InvalidSkillMultiplierError
         if not is_special and stat is None:
-            raise ValueError('A regular skill must reference a character stat.')
+            raise RegularSkillStatRequiredError
         self.title = normalized_title
         self.description = description
         self.value = value

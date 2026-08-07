@@ -3,7 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from skills.entities import Skill, SkillStat
+from characters.entities import CharacterStatName
+from skills.entities import Skill
 
 
 def _skill(
@@ -13,7 +14,7 @@ def _skill(
     min_value: int = 0,
     max_value: int = 10,
     multiplier: int = 1,
-    stat: SkillStat | None = SkillStat.REFLEXES,
+    stat: CharacterStatName | None = CharacterStatName.REFLEXES,
     is_special: bool = False,
 ) -> Skill:
     return Skill(
@@ -54,4 +55,4 @@ def test_skill_rejects_invalid_state(factory: Callable[[], Skill]) -> None:
 
 def test_special_skill_accepts_optional_stat() -> None:
     assert _skill(is_special=True, stat=None).stat is None
-    assert _skill(is_special=True, stat=SkillStat.COOL).stat is SkillStat.COOL
+    assert _skill(is_special=True, stat=CharacterStatName.COOL).stat is CharacterStatName.COOL

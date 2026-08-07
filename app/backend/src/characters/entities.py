@@ -1,5 +1,19 @@
 from dataclasses import dataclass
+from enum import StrEnum
 from uuid import UUID
+
+
+class CharacterStatName(StrEnum):
+    LUCK = 'luck'
+    INTELLIGENCE = 'intelligence'
+    REFLEXES = 'reflexes'
+    DEXTERITY = 'dexterity'
+    COOL = 'cool'
+    EMPATHY = 'empathy'
+    WILLPOWER = 'willpower'
+    TECHNIC = 'technic'
+    BODY = 'body'
+    MOVEMENT = 'movement'
 
 
 class InvalidStatBoundsError(ValueError):

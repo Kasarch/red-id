@@ -3,8 +3,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, Index, String, func, true
 from sqlalchemy.orm import Mapped, mapped_column
 
+from characters.entities import CharacterStatName
 from database import Base
-from skills.entities import SkillStat
 
 
 class SkillModel(Base):
@@ -18,8 +18,8 @@ class SkillModel(Base):
     min_value: Mapped[int] = mapped_column(nullable=False)
     max_value: Mapped[int] = mapped_column(nullable=False)
     multiplier: Mapped[int] = mapped_column(nullable=False)
-    stat: Mapped[SkillStat | None] = mapped_column(
-        Enum(SkillStat, name='skill_stat', values_callable=lambda enum: [item.value for item in enum]),
+    stat: Mapped[CharacterStatName | None] = mapped_column(
+        Enum(CharacterStatName, name='skill_stat', values_callable=lambda enum: [item.value for item in enum]),
         nullable=True,
     )
     is_special: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)

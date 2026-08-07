@@ -4,8 +4,9 @@ from uuid import UUID, uuid4
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from characters.service import PostgreSQLConstraintError
-from skills.entities import Skill, SkillStat
+from characters.entities import CharacterStatName
+from database_errors import postgresql_constraint_name
+from skills.entities import Skill
 from skills.repository import SkillRepository
 
 TITLE_INDEX = 'uq_character_skills_character_id_title_lower'
@@ -32,7 +33,7 @@ class SkillData:
     min_value: int
     max_value: int
     multiplier: int
-    stat: SkillStat | None
+    stat: CharacterStatName | None
     is_special: bool
 
 
@@ -44,7 +45,7 @@ class PartialSkillData:
     min_value: int | None = None
     max_value: int | None = None
     multiplier: int | None = None
-    stat: SkillStat | None = None
+    stat: CharacterStatName | None = None
     stat_is_set: bool = False
     is_special: bool | None = None
 
@@ -138,7 +139,7 @@ class SkillService:
             await self._session.commit()
         except IntegrityError as error:
             await self._session.rollback()
-            constraint = _unique_constraint(error)
+            constraint = postgresql_constraint_name(error, sqlstate='23505')
             if constraint == TITLE_INDEX:
                 raise SkillTitleAlreadyExistsError from error
             if constraint == SPECIAL_INDEX:
@@ -151,10 +152,3 @@ class SkillService:
 
 def _new_skill(character_id: UUID, data: SkillData) -> Skill:
     return Skill(id=uuid4(), character_id=character_id, **asdict(data))
-
-
-def _unique_constraint(error: IntegrityError) -> str | None:
-    cause = error.orig.__cause__ if error.orig is not None else None
-    if isinstance(cause, PostgreSQLConstraintError) and cause.sqlstate == '23505':
-        return cause.constraint_name
-    return None

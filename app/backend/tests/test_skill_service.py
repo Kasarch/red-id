@@ -4,7 +4,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from skills.entities import Skill, SkillStat
+from characters.entities import CharacterStatName
+from skills.entities import Skill
 from skills.repository import SkillRepository
 from skills.service import (
     SPECIAL_INDEX,
@@ -68,7 +69,7 @@ def _data() -> SkillData:
         min_value=0,
         max_value=10,
         multiplier=1,
-        stat=SkillStat.REFLEXES,
+        stat=CharacterStatName.REFLEXES,
         is_special=False,
     )
 

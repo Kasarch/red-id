@@ -1,24 +1,14 @@
-from typing import Protocol, runtime_checkable
-
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.jwt import JWTService, TokenType
 from auth.providers import OAuthProvider
 from auth.schemas import OAuthProfile, TokenPair
+from database_errors import postgresql_constraint_name
 from users.models import User
 from users.repository import UserRepository
 
 OAUTH_IDENTITY_CONSTRAINT = 'uq_oauth_accounts_provider_identity'
-
-
-@runtime_checkable
-class PostgreSQLConstraintError(Protocol):
-    @property
-    def sqlstate(self) -> str: ...
-
-    @property
-    def constraint_name(self) -> str | None: ...
 
 
 class UserNotFoundError(Exception):
@@ -91,14 +81,7 @@ class AuthService:
 
 
 def _is_oauth_identity_conflict(error: IntegrityError) -> bool:
-    if error.orig is None:
-        return False
-    cause = error.orig.__cause__
-    return (
-        isinstance(cause, PostgreSQLConstraintError)
-        and cause.sqlstate == '23505'
-        and cause.constraint_name == OAUTH_IDENTITY_CONSTRAINT
-    )
+    return postgresql_constraint_name(error, sqlstate='23505') == OAUTH_IDENTITY_CONSTRAINT
 
 
 def _tokens_for(user: User, jwt_service: JWTService) -> TokenPair:
