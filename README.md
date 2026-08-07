@@ -230,6 +230,13 @@ HTTP route -> service -> repository -> PostgreSQL
 
 Character routes use the `/api/v1` prefix: `GET/POST /api/v1/characters/` and `GET/PUT/PATCH/DELETE /api/v1/characters/{character_id}/`. A title is trimmed at its edges, keeps its display case, and is unique per owner without regard to case. Title changes are available only through `PUT` and `PATCH`; there is no rename action. Successful deletion returns `204 No Content`. All application endpoints are declared with a trailing `/`.
 
+Character skills are stored per character and use these routes:
+
+- `GET/POST /api/v1/characters/{character_id}/skills/`
+- `GET/PUT/PATCH/DELETE /api/v1/characters/{character_id}/skills/{skill_id}/`
+
+A skill title is trimmed and unique within its character without regard to case. A stored value is positive and between non-negative bounds, the multiplier is at least one, and a regular skill requires one of the character stats (`luck`, `intelligence`, `reflexes`, `dexterity`, `cool`, `empathy`, `willpower`, `technic`, `body`, or `movement`). A special skill may omit its stat, but each character can have only one special skill. `PUT` or `PATCH` with `value: 0` deletes the stored skill and returns an empty `204 No Content`; creation with zero is rejected with `422`.
+
 ### Stateless refresh-token limitation
 
 Refresh tokens are stateless JWTs: the server stores no sessions, token families, or revocation list. Consequently, logout with immediate invalidation and server-side revocation are not supported, and a compromised refresh token remains usable until it expires. Detecting reuse and implementing true rotation would require server state, such as stored token-family hashes.
@@ -461,6 +468,13 @@ HTTP route -> service -> repository -> PostgreSQL
 ```
 
 Маршруты персонажей используют prefix `/api/v1`: `GET/POST /api/v1/characters/` и `GET/PUT/PATCH/DELETE /api/v1/characters/{character_id}/`. У названия удаляются крайние пробелы, отображаемый регистр сохраняется, а уникальность для владельца проверяется без учёта регистра. Название изменяется только через `PUT` и `PATCH`; отдельного rename-действия нет. Успешное удаление возвращает `204 No Content`. Все прикладные endpoints объявлены с завершающим `/`.
+
+Навыки хранятся отдельно для каждого персонажа и используют маршруты:
+
+- `GET/POST /api/v1/characters/{character_id}/skills/`
+- `GET/PUT/PATCH/DELETE /api/v1/characters/{character_id}/skills/{skill_id}/`
+
+У названия навыка удаляются крайние пробелы, а его уникальность внутри персонажа проверяется без учёта регистра. Сохраняемое значение положительно и находится внутри неотрицательных границ, multiplier не меньше единицы, а обычный навык обязан ссылаться на одну из характеристик персонажа (`luck`, `intelligence`, `reflexes`, `dexterity`, `cool`, `empathy`, `willpower`, `technic`, `body` или `movement`). Special-навык может не иметь характеристики, но у персонажа может быть только один special-навык. `PUT` или `PATCH` с `value: 0` удаляет запись и возвращает пустой `204 No Content`; создание с нулём отклоняется с `422`.
 
 ### Ограничение stateless refresh-токенов
 
